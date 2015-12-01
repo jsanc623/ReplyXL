@@ -1,16 +1,19 @@
 from lib.imagize import Imagize
 from flask import Flask
+from flask import request
 
 app = Flask(__name__)
 
 @app.route('/')
 def index():
-    print "index"
     return 'Hello there!'
 
 @app.route('/imagize')
 def imagize():
-    return (Imagize()).generate("")
+    text = request.args.get('text')
+
+    imageize = Imagize()
+    return imageize.generate(text)
 
 if __name__ == '__main__':
     #app.run(host='0.0.0.0', port=5000)

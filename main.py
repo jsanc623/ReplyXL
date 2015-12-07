@@ -33,11 +33,7 @@ settings = {
 
 applicationDeny = tornado.web.Application([
     (r"/dtcalc/v1/public/(.*)", tornado.web.StaticFileHandler, dict(path=settings['template_path'])),
-    (r"/dtcalc/v1/dutiesAndTaxes", CalculationHandler),
-    (r"/dtcalc/v1/lcc", LCCHandler),
-    (r"/dtcalc/v1/getEstimatedDutiesAndTaxes", CalculationHandler),
-    (r"/dtcalc/v1/statuscheck", StatusHandler),
-    (r"/dtcalc/v1/f5", LoadBalancerHandler),
+
     (r"/statuscheck", StatusHandler),
     (r"/f5", LoadBalancerHandler),
     (r"/dtcalc/v1/(favicon\.ico)", tornado.web.StaticFileHandler, dict(path=settings['favicon_path'])),
@@ -48,11 +44,7 @@ applicationDeny = tornado.web.Application([
 
 applicationAllow = tornado.web.Application([
     (r"/dtcalc/v1/public/(.*)", tornado.web.StaticFileHandler, dict(path=settings['template_path'])),
-    (r"/dtcalc/v1/dutiesAndTaxes", CalculationHandler),
-    (r"/dtcalc/v1/lcc", LCCHandler),
-    (r"/dtcalc/v1/getEstimatedDutiesAndTaxes", CalculationHandler),
-    (r"/dtcalc/v1/statuscheck", StatusHandler),
-    (r"/dtcalc/v1/f5", LoadBalancerHandler),
+
     (r"/statuscheck", StatusHandler),
     (r"/f5", LoadBalancerHandler),
     (r"/dtcalc/v1/(favicon\.ico)", tornado.web.StaticFileHandler, dict(path=settings['favicon_path'])),

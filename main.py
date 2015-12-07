@@ -1,26 +1,98 @@
-from lib.imagize import Imagize
-from flask import Flask
-from flask import request
+import chardet
+import uuid
+import json
+import os
+import traceback
 
-app = Flask(__name__)
+import tornado.httpserver
+import tornado.ioloop
+import tornado.web
+from tornado.options import define, options
 
-@app.route('/')
-def index():
-    return 'Hello there!'
+# import handlers
+from app.load_balancer_handler import LoadBalancerHandler
+from app.status_handlers import StatusHandler, MissingHandler, DenyHandler
 
-@app.route('/imagize')
-def imagize():
-    text = request.args.get('text')
+# Import our library
+from lib.config_wrapper import ConfigWrapper
+from lib.json_encoder import JSONEncoder
+from lib.log_wrapper import LogWrapper
 
-    imageize = Imagize()
-    return imageize.generate(text)
+define("config", type=str, default=None)
+define("port", default=9005, type=int)
+define("processes", default=1, type=int)
 
-if __name__ == '__main__':
-    #app.run(host='0.0.0.0', port=5000)
+settings = {
+    'debug': False,
+    'template_path': os.path.join(os.path.dirname(__file__), "public"),
+    'favicon_path': os.path.join(os.path.dirname(__file__), "public/img"),
+    'robots_path': os.path.join(os.path.dirname(__file__), "public/templates"),
+    'autoreload': True,
+    'compress_response': True,
+}
 
-    I = Imagize()
-    print I.generate("As they rounded a bend in the path that ran beside the river, Lara recognized the "
-                     "silhouette of a fig tree atop a nearby hill. The weather was hot and the days were "
-                     "long. The fig tree was in full leaf, but not yet bearing fruit. Soon Lara spotted other "
-                     "landmarks - an outcropping of limestone beside the path that had a silhouette like a man's "
-                     "face, a marshy spot beside the river where the waterfowl were easily startled, a tall tree")
+applicationDeny = tornado.web.Application([
+    (r"/dtcalc/v1/public/(.*)", tornado.web.StaticFileHandler, dict(path=settings['template_path'])),
+    (r"/dtcalc/v1/dutiesAndTaxes", CalculationHandler),
+    (r"/dtcalc/v1/lcc", LCCHandler),
+    (r"/dtcalc/v1/getEstimatedDutiesAndTaxes", CalculationHandler),
+    (r"/dtcalc/v1/statuscheck", StatusHandler),
+    (r"/dtcalc/v1/f5", LoadBalancerHandler),
+    (r"/statuscheck", StatusHandler),
+    (r"/f5", LoadBalancerHandler),
+    (r"/dtcalc/v1/(favicon\.ico)", tornado.web.StaticFileHandler, dict(path=settings['favicon_path'])),
+    (r"/dtcalc/v1/(robots\.txt)", tornado.web.StaticFileHandler, dict(path=settings['robots_path'])),
+    (r"/dtcalc/v1/", DenyHandler),
+    (r'.*', MissingHandler)
+], settings)
+
+applicationAllow = tornado.web.Application([
+    (r"/dtcalc/v1/public/(.*)", tornado.web.StaticFileHandler, dict(path=settings['template_path'])),
+    (r"/dtcalc/v1/dutiesAndTaxes", CalculationHandler),
+    (r"/dtcalc/v1/lcc", LCCHandler),
+    (r"/dtcalc/v1/getEstimatedDutiesAndTaxes", CalculationHandler),
+    (r"/dtcalc/v1/statuscheck", StatusHandler),
+    (r"/dtcalc/v1/f5", LoadBalancerHandler),
+    (r"/statuscheck", StatusHandler),
+    (r"/f5", LoadBalancerHandler),
+    (r"/dtcalc/v1/(favicon\.ico)", tornado.web.StaticFileHandler, dict(path=settings['favicon_path'])),
+    (r"/dtcalc/v1/(robots\.txt)", tornado.web.StaticFileHandler, dict(path=settings['robots_path'])),
+    (r"/dtcalc/v1/", DenyHandler),
+    (r'.*', MissingHandler)
+], settings)
+
+
+if __name__ == "__main__":
+    tornado.options.parse_command_line()
+
+    config = ConfigWrapper()
+    settings = {}
+    if options.config:
+        settings = config.load_config(options.config, "duties_taxes")
+
+    if options.port:
+        settings['port'] = options.port
+
+    # Load our logging module
+    log_instance = LogWrapper(config=settings)
+    logger = log_instance.myLogger()
+
+    # db instance
+    db = None
+
+    logger.info("> Tornado Server Started with the Following Configs:")
+    logger.info("> Config File ==> " + str(options.config))
+    logger.info("> Port ==> " + str(options.port))
+    logger.info("> Config Settings ==> " + str(settings))
+
+    if settings['environment'] in ['PRODUCTION', 'STAGING']:
+        logger.info("> Loaded ==> Deny application")
+        server = tornado.httpserver.HTTPServer(applicationDeny)
+    else:
+        logger.info("> Loaded ==> Allow application")
+        server = tornado.httpserver.HTTPServer(applicationAllow)
+
+    server.bind(options.port)
+    server.start(options.processes)
+
+    tornado.ioloop.IOLoop.instance().start()

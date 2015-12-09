@@ -1,9 +1,6 @@
-import chardet
-import uuid
-import json
 import os
-import traceback
 
+# import tornado libraries
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
@@ -20,6 +17,7 @@ from app.controllers.ImagizeGenerator import ImagizeGenerator
 from lib.config_wrapper import ConfigWrapper
 from lib.json_encoder import JSONEncoder
 from lib.log_wrapper import LogWrapper
+from lib.db_wrapper import Database
 
 define("config", type=str, default=None)
 define("port", default=9005, type=int)
@@ -36,7 +34,7 @@ settings = {
 }
 
 applicationDeny = tornado.web.Application([
-    (r"/v1/imagize", ImagizeGenerator, dict(path=settings['template_path'])),
+    (r"/v1/imagize", ImagizeGenerator),
 
     (r"/v1/static/(.*)", tornado.web.StaticFileHandler, dict(path=settings['static_path'])),
     (r"/v1/public/(.*)", tornado.web.StaticFileHandler, dict(path=settings['template_path'])),
@@ -78,7 +76,7 @@ if __name__ == "__main__":
     logger = log_instance.myLogger()
 
     # db instance
-    db = None
+    db = Database(config=settings)
 
     logger.info("> Tornado Server Started with the Following Configs:")
     logger.info("> Config File ==> " + str(options.config))

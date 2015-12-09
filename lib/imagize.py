@@ -2,6 +2,10 @@ from PIL import ImageFont
 from PIL import Image
 from PIL import ImageDraw
 import uuid
+import os
+import base64
+
+from lib.db_wrapper import Database
 
 class Imagize(object):
     font = "resources/HelveticaNeue-Light.ttf"
@@ -14,10 +18,43 @@ class Imagize(object):
     right_padding = 6
     width = 600
 
-    def __init__(self):
-        pass
+    text = None
+    enc_text = None
 
-    def generate(self, text):
+    def __init__(self):
+        self.db = Database(None) # fetch a singleton
+
+#    @staticmethod
+#    def sha_text(text):
+#        salt = uuid.uuid4().hex
+#        return hashlib.sha512(salt.encode() + text.encode()).hexdigest() + ":" + salt
+#
+#    @staticmethod
+#    def check_sha(hashed_text, unhashed_text):
+#        hashed_text, salt = hashed_text.split(':')
+#        return hashed_text == hashlib.sha512(salt.encode() + unhashed_text.encode()).hexdigest()
+
+    @staticmethod
+    def enc(text):
+        return base64.b64encode(text)
+
+    @staticmethod
+    def check_enc(enc_text, plaintext):
+        app, text, user = enc_text.split(":")
+        return app + ":" + base64.b64decode(text) + ":" + user == plaintext
+
+    def prep(self, text, user_uuid, app_uuid):
+        self.text = text
+        self.enc_text = str(app_uuid) + ":" + self.enc(str(self.text)) + ":" + str(user_uuid)
+
+        res = self.db.collection.find({"_id": self.enc_text})
+        if res.count() >= 1:
+            return res[0]
+
+        return None
+
+    def generate(self):
+        text = self.text
         replacement_character = u'\uFFFD'
         newline_replacement_string = ' ' + replacement_character + ' '
 
@@ -65,6 +102,7 @@ class Imagize(object):
 
         img = img.resize((int(float(self.width)/1.02), int(float(img_height)/1.02)), Image.ANTIALIAS)
 
-        filename = "static/" + str(uuid.uuid4()) + ".png"
-        img.save(filename, 'PNG', quality=100)
-        return filename
+        filename = str(uuid.uuid4()) + ".png"
+        webpath = "static/" + filename
+        img.save(webpath, 'PNG', quality=100)
+        return filename, os.path.dirname(os.path.abspath(filename)), webpath, self.enc_text

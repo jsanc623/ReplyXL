@@ -27,7 +27,7 @@ class ImagizeGenerator(tornado.web.RequestHandler):
         self.set_header('Content-Type', 'text/html')
         self.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
         #self.set_status(code)
-        self.write("http://54.152.150.121/v1/" + self.filename)
+        self.write("<img src='http://54.152.150.121/v1/" + self.filename + "' />")
         #self.write(response)
 
     def post(self):
